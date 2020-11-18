@@ -18,4 +18,5 @@ Beijing Housing Authority released a new affordable housing project called “Sh
 
 ## Analysis
 RMarkdown: [soh_analysis.Rmd](../blob/master/soh_analysis.Rmd)
+
 Project Paper: [Amenity Accessibility Evaluation of Shared-Ownership Housing in Beijing](../blob/master/location_analysis_soh_beijing_sihanmao.pdf)

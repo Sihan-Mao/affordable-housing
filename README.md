@@ -9,14 +9,14 @@ Beijing Housing Authority released a new affordable housing project called “Sh
 1. Scraping land transaction records from www.3fang.com to identify Shared-Ownership Property units.
 
 2. Scraping NASA MODIS MCD19A2 data and convert the MODIS AOD data into Geotiff for Air Quality Analysis.
-    * Scrape HDF4 satellite data using [Python](../blob/master/hdf_processing/hdf-scrape.py);
-    * Convert HDF4 to GeoTIFF using Python and OSGeo4W [command shell](../blob/master/hdf_processing/hdf-geotiff.py);
-    * [Raster Processing using R](../blob/master/hdf_processing/bj_aod_estimates.R).
+    * Scrape HDF4 satellite data using [Python](../master/hdf_processing/hdf-scrape.py);
+    * Convert HDF4 to GeoTIFF using Python and OSGeo4W [command shell](../master/hdf_processing/hdf-geotiff.py);
+    * [Raster Processing using R](../master/hdf_processing/bj_aod_estimates.R).
 
 3. Calculate access scores for each property location to nearby amenities.
-    * The Spatial Access Model runs in Ubuntu Server with [IPython notebook](..blob/master/hdf_processing/hdf-scrape.py).
+    * The Spatial Access Model runs in Ubuntu Server with [IPython notebook](../master/hdf_processing/hdf-scrape.py).
 
 ## Analysis
-RMarkdown: [soh_analysis.Rmd](../blob/master/soh_analysis.Rmd)
+RMarkdown: [soh_analysis.Rmd](../master/soh_analysis.Rmd)
 
-Project Paper: [Amenity Accessibility Evaluation of Shared-Ownership Housing in Beijing](../blob/master/location_analysis_soh_beijing_sihanmao.pdf)
+Project Paper: [Amenity Accessibility Evaluation of Shared-Ownership Housing in Beijing](../master/location_analysis_soh_beijing_sihanmao.pdf)

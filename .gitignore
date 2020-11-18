@@ -1,0 +1,5 @@
+data/
+access_model/
+.ipynb_checkpoints/
+.Rhistory
+.vscode/

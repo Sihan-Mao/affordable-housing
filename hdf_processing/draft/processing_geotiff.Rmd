@@ -1,0 +1,155 @@
+---
+title: "MCD19A2"
+Source: "xxx"
+output:
+  html_document:
+    number_sections: true
+---
+
+#.setup
+
+```{r include=FALSE, warning=FALSE, message=FALSE}
+library(RCurl)
+library(gdalUtils)
+library(rgdal)
+library(rts)
+library(raster)
+library(dplyr)
+library(devtools)
+library(purrr)
+library(lubridate)
+library(sp)
+library(stringr)
+library("readxl")
+```
+
+```{r}
+setwd("D:/Auguste/UChicago/2018-2019/2019winter/GIS 2/project")
+```
+
+#.Processing
+
+##. Date 
+
+```{r}
+MAIACDateFromName <- function(n) {
+  
+  #Get date from file name 
+  date.substring <- strsplit(n, ".", fixed = T)[[1]][2]
+  
+  #Remove extra A
+  date.substring <- gsub("A", "", date.substring)
+  
+  #Extract year from File Name
+  year <- as.integer(substring(date.substring, first = 0, last = 4))
+  
+  #Use year to create origin for julian date
+  origin <- paste(year, "-01-01", sep = "")
+  
+  #Extract julian date (Subtract 1 for correct date)
+  julianDate <- as.integer(gsub(year, "", date.substring)) - 1
+  
+  date <- as.Date(julianDate, origin = origin)
+  
+  return(date)
+}
+```
+
+
+##. Names
+
+```{r}
+aod.names <- read.csv("LAADS_query.csv") %>%
+  mutate(fileUrls = as.character(fileUrls))
+
+aod.dates <- as.Date(unlist(map(aod.names$fileUrls, MAIACDateFromName)))
+```
+
+##. File path to tif 
+
+2014 aod files
+```{r}
+aod.path <- "D:/Auguste/UChicago/2018-2019/2019winter/GIS 2/project/tif/try"
+aod2014 <- list.files(path = aod.path, full.names = TRUE, pattern = "2014")
+aod2014.stack <- stack(aod2014)
+```
+
+2016 aod files
+```{r}
+aod2016 <- list.files(path = aod.path, full.names = TRUE, pattern = "2016")
+aod2016.stack <- stack(aod2016)
+```
+
+2018 aod files
+```{r}
+aod2018 <- list.files(path = aod.path, full.names = TRUE, pattern = "A2018")
+aod2018.stack <- stack(aod2018)
+```
+
+##. CRS 
+```{r}
+new.crs <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+aod.crs <- CRS("+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m +no_defs ")
+
+rect <- matrix(c(115.42215, 39.44252, 
+                 117.51318, 39.44252, 
+                 117.51318, 41.05554, 
+                 115.42215, 41.05554,
+                 115.42215, 39.44252),
+                  ncol = 2, byrow = TRUE)
+
+p1 <- (Polygon(rect))
+ps1 <- SpatialPolygons(list(Polygons(list(p1), ID = "a")), proj4string=new.crs)
+ps1 <- spTransform(ps1, aod.crs)
+
+new.bbox <- bbox(ps1)
+```
+
+##. Crop raster stack
+```{r message=FALSE, warning=FALSE}
+surrounding2014.crop <- crop(aod2014.stack, new.bbox)
+
+surrounding2016.crop <- crop(aod2016.stack, new.bbox)
+
+surrounding2018.crop <- crop(aod2018.stack, new.bbox)
+
+reproj.surrounding2014.stack <- projectRaster(surrounding2014.crop, crs = new.crs)
+reproj.surrounding2016.stack <- projectRaster(surrounding2016.crop, crs = new.crs)
+reproj.surrounding2018.stack <- projectRaster(surrounding2018.crop, crs = new.crs)
+
+writeRaster(reproj.surrounding2014.stack, "MCD19A2_largebbox_2014.tif")
+writeRaster(reproj.surrounding2016.stack, "MCD19A2_largebbox_2016.tif")
+writeRaster(reproj.surrounding2018.stack, "MCD19A2_largebbox_2018.tif")
+```
+
+
+```{r}
+bj2014.aod <- stack("MCD19A2_largebbox_2014.tif")
+bj2014.aod.mean <- raster::mean(bj2014.aod, na.rm = T)
+bj.map <- readOGR("bj_n.shp")
+try <- raster("MCD19A2_largebbox_2014.tif")
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+bj1.aod <- stack("MCD19A2.A2014001.h26v05.006.2018096181502.tif")
+
+
+bj1.aod.mean <- raster::mean(bj1.aod, na.rm = T)
+plot(bj1.aod.mean)
+```
+
+
+```{r}
+aod.rts <- rts(bj1.aod, aod.dates[1:5])
+plot(aod.rts@raster[[1]])
+```
+

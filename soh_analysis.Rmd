@@ -1,0 +1,243 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+# import packages
+library(sf)          
+library(spData)
+library(spDataLarge)
+library(dplyr)
+library(tidyverse)
+library(stringr)
+library(rgeos)
+library(rgdal)
+library(lubridate)
+library(tmap)
+
+# setup working directory
+setwd("D:/Auguste/Projects/soh-bj/data/result/")
+```
+
+```{r}
+res_30m <- read.csv("result.csv",header = TRUE)
+res_30m$id <- 1:nrow(res_30m)
+```
+```{r}
+setwd("D:/Auguste/Projects/soh-bj/data/orig")
+origin<- read_sf('origin.shp', quiet = FALSE)
+orig_repr <- st_set_crs(origin, 4326)
+setwd("D:/Auguste/Projects/soh-bj/data/result/")
+res_drive <- read.csv("result_drive.csv",header = TRUE)
+
+### location with drive 1800 result merging with shp
+loc_res <- orig_repr %>% inner_join(res_drive, by = 'id') %>%
+  select(id, lat.x, lon.x, type.x, nearest_subway, school_score, hospital_score, annual_avg, geometry)
+
+### read in neighborhood result
+neigh_result<- read_sf('neigh_poly.shp', quiet = FALSE)
+
+### location left_join neighborhood
+neigh_soh <- neigh_result %>%
+  st_join(soh) %>%
+  drop_na(id)
+
+neigh_crh <- neigh_result %>%
+  st_join(crh) %>%
+  drop_na(id)
+
+### results of these two groups is good on hospital and subway
+neigh_soh <- neigh_soh[!duplicated(neigh_soh["streetid"]),]
+neigh_crh <- neigh_crh[!duplicated(neigh_crh["streetid"]),]
+
+### compare soh and crh's neighborhood 
+loc_neigh = st_join(orig_repr, neigh_result)
+
+loc_neigh %>% 
+  group_by(type) %>%
+  summarise(school = mean(school),
+            hospital = mean(hospital),
+            subway = mean(subway),
+            aod = mean(month_avg))
+``` 
+
+
+```{r}
+res_900 <- read.csv("result_walk_900.CSV", header = TRUE)
+res_900 %>%
+  group_by(type) %>%
+  summarise(school = mean(school_score),
+            hospital = mean(hospital_score),
+            aod = mean(annual_avg),
+            subway = mean(nearest_subway))
+```
+
+```{r}
+head(res_30m)
+res_drive %>%
+  group_by(type) %>%
+  summarise(school = mean(school_score),
+            hospital = mean(hospital_score),
+            aod = mean(annual_avg),
+            subway = mean(nearest_subway))
+```
+```{r}
+res_30m %>%
+  group_by(type) %>%
+  summarise(school = mean(school_score),
+            hospital = mean(hospital_score),
+            aod = mean(annual_avg),
+            subway = mean(time_to_nearest_subway))
+```
+
+```{r}
+ggplot(res_900, aes(x = nearest_subway, color = type)) +
+  geom_density()
+ggsave("subway_density.png", width=10, height=7)
+
+ggplot(res_900, aes(x = school_score)) +
+  geom_density(aes(fill=type), alpha = 0.3, size = 0.1) + scale_fill_manual(values = c("red", "blue"))
+               
+ggsave("school_density.png", width=10, height=7)
+
+ggplot(res_900, aes(x = hospital_score, color = type)) +
+  geom_density()
+ggsave("hospital_density.png", width=10, height=7)
+
+ggplot(res_drive, aes(x = annual_avg, color = type)) +
+  geom_density()
+ggsave("aod_density.png", width=10, height=7)
+```
+
+```{r}
+t.test(res_drive %>% filter(type == "soh") %>% select(nearest_subway), res_drive %>% filter(type == "crh") %>% select(nearest_subway), var.equal = FALSE)
+
+t.test(res_drive %>% filter(type == "soh") %>% select(annual_avg), res_drive %>% filter(type == "crh") %>% select(annual_avg), var.equal = FALSE)
+```
+
+```{r}
+res_sf = st_as_sf(res_30m, coords = c("lon", "lat"), 
+                 crs = 4326, agr = "constant")
+
+plot(res_sf[0])
+
+# setup working directory
+setwd("D:/Auguste/Projects/soh-bj/data/dest")
+
+bjdist <- read_sf('bjdist.shp', quiet = FALSE)
+
+tm_shape(res_sf) + tm_dots(border.col = "black", size = 0.5, shape = "type", col = "school_score", palette = "RdPu", shapes = c(24, 15))
+```
+
+```{r}
+### local and citywide comparison
+setwd("D:/Auguste/Projects/soh-bj/data/orig/")
+
+#origin
+
+orig_repr <- st_set_crs(origin, 4326)
+orig_repr <- st_transform(orig_repr, 32650)
+
+soh = orig_repr[orig_repr$type=="soh",]
+crh = orig_repr[orig_repr$type=="crh",]
+
+##########
+# exploratory buffer analysis
+
+buf_3 = st_buffer(soh[0], dist = 3000)
+int3 = st_intersects(x = crh, y = buf_3)
+int3_logical = lengths(int3) > 0
+crh3 = crh[int3_logical,]
+crh3_res = inner_join(res_900, crh3, by = "id") 
+
+buf_s3 = st_buffer(crh[0], dist = 3000)
+int3s = st_intersects(x = soh, y = buf_s3)
+int3s_logical = lengths(int3s) > 0
+soh3 = soh[int3s_logical,]
+soh3_res = inner_join(res_900, soh3, by = 'id')
+
+
+buf_4 = st_buffer(soh[0], dist = 4000)
+int4 = st_intersects(x = crh, y = buf_4)
+int4_logical = lengths(int4) > 0
+crh4 = crh[int4_logical,]
+
+
+buf_5 = st_buffer(soh[0], dist = 5000)
+int5 = st_intersects(x = crh, y = buf_5)
+int5_logical = lengths(int5) > 0
+crh5 = crh[int5_logical,]
+crh5_res = inner_join(res_drive, crh5, by = "id") 
+
+buf_s5 = st_buffer(crh[0], dist = 5000)
+int5s = st_intersects(x = soh, y = buf_s5)
+int5s_logical = lengths(int5s) > 0
+soh5 = soh[int5s_logical,]
+soh5_res = inner_join(res_drive, soh5, by = 'id')
+
+
+buf_6 = st_buffer(soh[0], dist = 6000)
+int6 = st_intersects(x = crh, y = buf_6)
+int6_logical = lengths(int6) > 0
+crh6 = crh[int6_logical,]
+
+
+soh_res = inner_join(res_30m, soh, by = "id")
+
+```
+
+##. Neighborhood level analysis
+```{r}
+#tm_shape(village_month_pct) + 
+#  tm_fill(col = "pct"， 
+#          title = "Percentage of Months",
+#          breaks = c(0,0.1, 0.2 ,0.3，0.4，0.5，1)) + 
+#  tm_facets(by = "month", nrow = 3, free.coords = FALSE, as.layers = TRUE)
+
+sch <- tm_shape(neigh_result) + 
+  tm_fill(col = "school",
+          title = "Access to Schools",
+          palette = "Greens")+ tm_scale_bar() + tm_compass(position = c("right", "top"))
+
+hos <- tm_shape(neigh_result) + 
+      tm_fill(col = "hospital",
+          title = "Access to Hospitals",
+          palette = "Greens")+ tm_scale_bar() + tm_compass(position = c("right", "top"))
+
+sub <- tm_shape(neigh_result) +
+  tm_fill(col = "subway",
+          title = "Access to Subway Stations",
+          palette = "Greens")+ tm_scale_bar() + tm_compass(position = c("right", "top"))
+
+aod <- tm_shape(neigh_result) +
+  tm_fill(col = "Aerosol Opitical Depth",
+          title = "AOD")+ tm_scale_bar() + tm_compass(position = c("right", "top"))
+
+c <- tm_shape(crh) + tm_symbols(size = 0.5, col = "black", alpha = 0.6, border.col = NA)
+s <- tm_shape(soh) + tm_symbols(size = 0.5, col = "blue", alpha = 0.6, shape = 24, border.col = NA)
+
+access_sch <- sch+s+c+tm_layout(frame = FALSE)
+access_hos <- hos+s+c+tm_layout(frame = FALSE)
+access_sub <- sub+s+c+tm_layout(frame=FALSE)
+access_aod <- aod+s+c+tm_layout(frame=FALSE)
+```
+
+```{r}
+## inset map
+shunyi <- st_bbox(c(xmin=116.5625, xmax=116.75,
+                    ymin=40.09, ymax = 40.24),
+                  crs = st_crs(neigh_result)) %>%
+  st_as_sfc()
+
+shunyi_map = tm_shape(neigh_result, bbox = shunyi) + tm_fill(col = "school",
+          title = "Access to Schools in Shunyi",
+          palette = "Greens")+ tm_scale_bar() + tm_compass(position = c("right", "top"))+s+c+tm_layout(frame = FALSE, legend.text.color = "white")
+
+hos_inset = hos +  tm_shape(crh) + tm_symbols(size = 0.1, col = "black", alpha = 0.6, border.col = NA) +tm_shape(soh) + tm_symbols(size = 0.1, col = "blue", alpha = 0.6, shape = 24, border.col = NA) + tm_layout("Access to Hospitals",frame = FALSE, legend.show = FALSE, title.size = 0.9, title.position = c(0.01, 0.96)) + tm_shape(shunyi) + tm_borders(lwd=2, col = "red", alpha = 0.7)
+
+library(grid)
+shunyi_map
+print(hos_inset, vp = viewport(0.34,0.78,width = 0.3,height = 0.4))
+```
+
